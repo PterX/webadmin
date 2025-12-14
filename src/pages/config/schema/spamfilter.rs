@@ -32,11 +32,20 @@ impl Builder<Schemas, ()> {
             .help("Whether to automatically update the spam filter rules")
             .default("false")
             .typ(Type::Boolean)
-            .new_field("spam-filter.card-is-ham")
-            .label("Do not classify messages from contacts as spam")
+            .new_field("spam-filter.card-is-ham.enable")
+            .label("Do not classify emails from contacts as spam")
             .help(concat!(
                 "Never classify messages as spam if they are sent ",
                 "from addresses present in the user's address book.",
+            ))
+            .default("true")
+            .typ(Type::Boolean)
+            .build()
+            .new_field("spam-filter.trusted-reply.enable")
+            .label("Do not classify trusted email replies as spam")
+            .help(concat!(
+                "Never classify messages as spam if they are replies ",
+                "to messages sent by the recipient.",
             ))
             .default("true")
             .typ(Type::Boolean)
@@ -48,32 +57,6 @@ impl Builder<Schemas, ()> {
                 "By default spam filter rules are downloaded from ",
                 "https://github.com/stalwartlabs/spam-filter.",
             ))
-            .typ(Type::Input)
-            .input_check([Transformer::Trim], [])
-            .build()
-            .new_field("spam-filter.header.status.enable")
-            .label("Add spam status header to messages")
-            .help("Whether to add a SPAM/HAM status header to messages")
-            .default("true")
-            .typ(Type::Boolean)
-            .build()
-            .new_field("spam-filter.header.status.name")
-            .label("Status header")
-            .help("Name of the spam status header")
-            .default("X-Spam-Status")
-            .typ(Type::Input)
-            .input_check([Transformer::Trim], [])
-            .build()
-            .new_field("spam-filter.header.result.enable")
-            .label("Add tag scores header to messages")
-            .help("Whether to include the assigned tags and scores as a header")
-            .default("true")
-            .typ(Type::Boolean)
-            .build()
-            .new_field("spam-filter.header.result.name")
-            .label("Results header")
-            .help("Name of the spam results header")
-            .default("X-Spam-Result")
             .typ(Type::Input)
             .input_check([Transformer::Trim], [])
             .build()
@@ -128,25 +111,6 @@ impl Builder<Schemas, ()> {
             .typ(Type::Duration)
             .input_check([], [])
             .build()
-            .new_field("spam-filter.trusted-reply.duration")
-            .label("Duration")
-            .help(concat!(
-                "Time to keep track of Message-Ids sent from authenticated users. ",
-                "Replies to messages sent from authenticated users are considered ham."
-            ))
-            .typ(Type::Duration)
-            .default("30d")
-            .input_check([], [])
-            .build()
-            .new_field("spam-filter.bayes.auto-learn.trusted-reply")
-            .label("Train the Bayes classifier on trusted replies")
-            .help(concat!(
-                "Whether replies to messages sent from authenticated ",
-                "users should be learned as ham.",
-            ))
-            .default("true")
-            .typ(Type::Boolean)
-            .build()
             .new_field("spam-filter.dnsbl.max-check.ip")
             .label("IP Checks")
             .help("Maximum number of DNSBL checks for IP addresses")
@@ -194,14 +158,13 @@ impl Builder<Schemas, ()> {
                 "spam-filter.score.discard",
                 "spam-filter.score.reject",
                 "spam-filter.enable",
-                "spam-filter.card-is-ham",
             ])
             .build()
             .new_form_section()
-            .title("Trusted Replies")
+            .title("Spam Filter Overrides")
             .fields([
-                "spam-filter.trusted-reply.duration",
-                "spam-filter.bayes.auto-learn.trusted-reply",
+                "spam-filter.card-is-ham.enable",
+                "spam-filter.trusted-reply.enable",
             ])
             .build()
             .new_form_section()
@@ -218,253 +181,278 @@ impl Builder<Schemas, ()> {
             ])
             .build()
             .new_form_section()
-            .title("Headers")
-            .fields([
-                "spam-filter.header.status.name",
-                "spam-filter.header.status.enable",
-                "spam-filter.header.result.name",
-                "spam-filter.header.result.enable",
-            ])
-            .build()
-            .new_form_section()
             .title("External Rules")
             .fields(["spam-filter.resource", "spam-filter.auto-update"])
             .build()
             .build()
-            // Bayes settings
-            .new_schema("spam-bayes")
-            .new_field("spam-filter.bayes.enable")
-            .label("Enable Bayes classification")
-            .help("Whether the bayes classifier should be enabled")
-            .default("true")
-            .typ(Type::Boolean)
+            // Spam classifier settings
+            .new_schema("spam-classifier")
+            .new_field("spam-filter.classifier.model")
+            .label("Model")
+            .help(concat!("The algorithm used for the spam classifier"))
+            .default("ftrl-fh")
+            .typ(Type::Select {
+                typ: SelectType::Single,
+                source: Source::Static(&[
+                    ("ftrl-fh", "FTRL-Proximal + Feature Hashing"),
+                    ("ftrl-ccfh", "FTRL-Proximal + Cuckoo Feature Hashing"),
+                    ("disabled", "Disabled"),
+                ]),
+            })
             .build()
-            .new_field("spam-filter.bayes.account.enable")
-            .label("Enable user-specific Bayes classification")
-            .help("Whether accounts can train their own bayes classifier")
-            .default("false")
-            .typ(Type::Boolean)
-            .build()
-            .new_field("spam-filter.bayes.auto-learn.enable")
-            .label("Automatically train the Bayes classifier")
-            .help("Whether the bayes classifier should be trained automatically")
-            .default("true")
-            .typ(Type::Boolean)
-            .build()
-            .new_field("spam-filter.bayes.auto-learn.card-is-ham")
-            .label("Train as ham messages from senders in the address book")
-            .help(concat!(
-                "If a message is classified as spam, ",
-                "but the sender is in the address book, learn it as ham."
-            ))
-            .default("true")
-            .typ(Type::Boolean)
-            .build()
-            .new_field("spam-filter.bayes.classify.balance")
-            .label("Balance")
-            .help("Keep difference for spam/ham learns for at least this value")
-            .default("0.9")
+            .new_field("spam-filter.classifier.reservoir-capacity")
+            .label("Capacity")
+            .help("The capacity of the training sample reservoir")
+            .default("1024")
             .typ(Type::Input)
             .input_check(
                 [Transformer::Trim],
                 [
                     Validator::Required,
-                    Validator::MinValue((-100.0).into()),
-                    Validator::MaxValue(100.0.into()),
+                    Validator::MinValue((100i64).into()),
+                    Validator::MaxValue(100000i64.into()),
                 ],
             )
             .build()
-            .new_field("spam-filter.bayes.auto-learn.threshold.ham")
-            .label("Learn Ham threshold")
-            .help("When to learn ham (score >= threshold)")
-            .default("-1.0")
-            .typ(Type::Input)
-            .input_check(
-                [Transformer::Trim],
-                [
-                    Validator::Required,
-                    Validator::MinValue((-100.0).into()),
-                    Validator::MaxValue(100.0.into()),
-                ],
-            )
-            .build()
-            .new_field("spam-filter.bayes.auto-learn.threshold.spam")
-            .label("Learn Spam threshold")
-            .help("When to learn spam (score >= threshold)")
-            .default("6.0")
-            .typ(Type::Input)
-            .input_check(
-                [Transformer::Trim],
-                [
-                    Validator::Required,
-                    Validator::MinValue((-100.0).into()),
-                    Validator::MaxValue(100.0.into()),
-                ],
-            )
-            .build()
-            .new_field("spam-filter.bayes.score.spam")
-            .label("Spam threshold")
-            .help("Classify as Spam messages with a score above this threshold")
-            .default("0.7")
-            .typ(Type::Input)
-            .input_check(
-                [Transformer::Trim],
-                [
-                    Validator::Required,
-                    Validator::MinValue((0.01).into()),
-                    Validator::MaxValue(1.0.into()),
-                ],
-            )
-            .build()
-            .new_field("spam-filter.bayes.score.ham")
-            .label("Ham threshold")
-            .help("Classify as Ham messages with a score below this threshold")
-            .default("0.5")
-            .typ(Type::Input)
-            .input_check(
-                [Transformer::Trim],
-                [
-                    Validator::Required,
-                    Validator::MinValue((0.01).into()),
-                    Validator::MaxValue(1.0.into()),
-                ],
-            )
-            .build()
-            .new_field("spam-filter.bayes.account.score.spam")
-            .label("Spam threshold")
-            .help("Classify as Spam messages with a score above this threshold")
-            .default("0.7")
-            .typ(Type::Input)
-            .input_check(
-                [Transformer::Trim],
-                [
-                    Validator::Required,
-                    Validator::MinValue((0.01).into()),
-                    Validator::MaxValue(1.0.into()),
-                ],
-            )
-            .build()
-            .new_field("spam-filter.bayes.account.score.ham")
-            .label("Ham threshold")
-            .help("Classify as HAM messages with a score below this threshold")
-            .default("0.5")
-            .typ(Type::Input)
-            .input_check(
-                [Transformer::Trim],
-                [
-                    Validator::Required,
-                    Validator::MinValue((0.01).into()),
-                    Validator::MaxValue(1.0.into()),
-                ],
-            )
-            .build()
-            .new_field("spam-filter.bayes.classify.strength")
-            .label("Strength")
-            .help("The strength of the bayes classifier")
-            .default("0.05")
+            .new_field("spam-filter.classifier.auto-learn.spam-score")
+            .label("Auto-learn Spam score")
+            .help("Score threshold to auto-learn spam messages")
+            .default("8.0")
             .typ(Type::Input)
             .input_check(
                 [Transformer::Trim],
                 [
                     Validator::Required,
                     Validator::MinValue((0.0).into()),
-                    Validator::MaxValue(1.0.into()),
+                    Validator::MaxValue(100.0.into()),
                 ],
             )
             .build()
-            .new_field("spam-filter.bayes.classify.tokens.hits")
-            .label("Token hits")
-            .help("The minimum number of token hits required for classification")
-            .default("2")
+            .new_field("spam-filter.classifier.auto-learn.ham-score")
+            .label("Auto-learn Ham score")
+            .help("Score threshold to auto-learn ham messages")
+            .default("-8.0")
+            .typ(Type::Input)
+            .input_check(
+                [Transformer::Trim],
+                [
+                    Validator::Required,
+                    Validator::MinValue((-100.0).into()),
+                    Validator::MaxValue(0.0.into()),
+                ],
+            )
+            .build()
+            .new_field("spam-filter.classifier.samples.hold-for")
+            .label("Hold samples for")
+            .help("Duration to hold training samples for")
+            .typ(Type::Duration)
+            .default("180d")
+            .input_check([], [Validator::Required])
+            .build()
+            .new_field("spam-filter.classifier.samples.min-ham")
+            .label("Min. Ham samples")
+            .help("Minimum number of ham samples required for training")
+            .default("10")
             .typ(Type::Input)
             .input_check(
                 [Transformer::Trim],
                 [
                     Validator::Required,
                     Validator::MinValue((1i64).into()),
-                    Validator::MaxValue(100i64.into()),
+                    Validator::MaxValue(10000i64.into()),
                 ],
             )
             .build()
-            .new_field("spam-filter.bayes.classify.tokens.min")
-            .label("Minimum tokens")
-            .help("The minimum number of token required for classification")
-            .default("11")
+            .new_field("spam-filter.classifier.samples.min-spam")
+            .label("Min. Spam samples")
+            .help("Minimum number of spam samples required for training")
+            .default("10")
             .typ(Type::Input)
             .input_check(
                 [Transformer::Trim],
                 [
                     Validator::Required,
                     Validator::MinValue((1i64).into()),
-                    Validator::MaxValue(100i64.into()),
+                    Validator::MaxValue(10000i64.into()),
                 ],
             )
             .build()
-            .new_field("spam-filter.bayes.classify.learns")
-            .label("Minimum learns")
-            .help("The minimum number of learns required for classification")
-            .default("200")
-            .typ(Type::Input)
-            .input_check(
-                [Transformer::Trim],
-                [
-                    Validator::Required,
-                    Validator::MinValue((1i64).into()),
-                    Validator::MaxValue(1000i64.into()),
-                ],
-            )
+            .new_field("spam-filter.classifier.training.frequency")
+            .label("Training frequency")
+            .help("Frequency to train the spam classifier")
+            .typ(Type::Duration)
+            .default("12h")
             .build()
-            .new_field("spam-filter.header.bayes.enable")
-            .label("Add Bayes score header to messages")
+            .new_field("spam-filter.card-is-ham.learn")
+            .label("Auto-learn ham from address book")
             .help(concat!(
-                "Whether to add a header with the Bayes score to messages. ",
-                "This setting applies only to the user-specific Bayes classifier."
+                "Whether to automatically learn ham messages ",
+                "from senders in the user's address book.",
             ))
             .default("true")
             .typ(Type::Boolean)
             .build()
-            .new_field("spam-filter.header.bayes.name")
-            .label("Bayes header")
-            .help("Name of the bayes score header")
-            .default("X-Spam-Bayes")
+            .new_field("spam-filter.trusted-reply.learn")
+            .label("Auto-learn ham from trusted replies")
+            .help(concat!(
+                "Whether to automatically learn ham messages ",
+                "that are replies to messages sent by the recipient.",
+            ))
+            .default("true")
+            .typ(Type::Boolean)
+            .build()
+            .new_field("spam-filter.classifier.parameters.features")
+            .label("Parameters")
+            .help("The number of model parameters (2^n)")
+            .default("20")
+            .typ(Type::Select {
+                typ: SelectType::Single,
+                source: Source::Static(MODEL_SIZES),
+            })
+            .build()
+            .new_field("spam-filter.classifier.parameters.alpha")
+            .label("Alpha")
+            .help("The alpha parameter for the FTRL-Proximal algorithm")
+            .default("2.0")
             .typ(Type::Input)
-            .input_check([Transformer::Trim], [])
+            .input_check(
+                [Transformer::Trim],
+                [Validator::Required, Validator::MinValue((0.0).into())],
+            )
+            .build()
+            .new_field("spam-filter.classifier.parameters.beta")
+            .label("Beta")
+            .help("The beta parameter for the FTRL-Proximal algorithm")
+            .default("1.0")
+            .typ(Type::Input)
+            .input_check(
+                [Transformer::Trim],
+                [Validator::Required, Validator::MinValue((0.0).into())],
+            )
+            .build()
+            .new_field("spam-filter.classifier.parameters.l1")
+            .label("L1 Ratio")
+            .help("The L1 regularization parameter for the FTRL-Proximal algorithm")
+            .default("0.001")
+            .typ(Type::Input)
+            .input_check(
+                [Transformer::Trim],
+                [Validator::Required, Validator::MinValue((0.0).into())],
+            )
+            .build()
+            .new_field("spam-filter.classifier.parameters.l2")
+            .label("L2 Ratio")
+            .help("The L2 regularization parameter for the FTRL-Proximal algorithm")
+            .default("0.0001")
+            .typ(Type::Input)
+            .input_check(
+                [Transformer::Trim],
+                [Validator::Required, Validator::MinValue((0.0).into())],
+            )
+            .build()
+            .new_field("spam-filter.classifier.parameters.ccfh.features")
+            .label("Parameters")
+            .help("The number of indicator parameters (2^n)")
+            .default("18")
+            .typ(Type::Select {
+                typ: SelectType::Single,
+                source: Source::Static(MODEL_SIZES),
+            })
+            .display_if_eq("spam-filter.classifier.model", ["ftrl-ccfh"])
+            .build()
+            .new_field("spam-filter.classifier.parameters.ccfh.alpha")
+            .label("Alpha")
+            .help("The alpha parameter for the FTRL-Proximal algorithm")
+            .default("2.0")
+            .typ(Type::Input)
+            .input_check(
+                [Transformer::Trim],
+                [Validator::Required, Validator::MinValue((0.0).into())],
+            )
+            .display_if_eq("spam-filter.classifier.model", ["ftrl-ccfh"])
+            .build()
+            .new_field("spam-filter.classifier.parameters.ccfh.beta")
+            .label("Beta")
+            .help("The beta parameter for the FTRL-Proximal algorithm")
+            .default("1.0")
+            .typ(Type::Input)
+            .input_check(
+                [Transformer::Trim],
+                [Validator::Required, Validator::MinValue((0.0).into())],
+            )
+            .display_if_eq("spam-filter.classifier.model", ["ftrl-ccfh"])
+            .build()
+            .new_field("spam-filter.classifier.parameters.ccfh.l1")
+            .label("L1 Ratio")
+            .help("The L1 regularization parameter for the FTRL-Proximal algorithm")
+            .default("0.001")
+            .typ(Type::Input)
+            .input_check(
+                [Transformer::Trim],
+                [Validator::Required, Validator::MinValue((0.0).into())],
+            )
+            .display_if_eq("spam-filter.classifier.model", ["ftrl-ccfh"])
+            .build()
+            .new_field("spam-filter.classifier.parameters.ccfh.l2")
+            .label("L2 Ratio")
+            .help("The L2 regularization parameter for the FTRL-Proximal algorithm")
+            .default("0.0001")
+            .typ(Type::Input)
+            .input_check(
+                [Transformer::Trim],
+                [Validator::Required, Validator::MinValue((0.0).into())],
+            )
+            .display_if_eq("spam-filter.classifier.model", ["ftrl-ccfh"])
             .build()
             .new_form_section()
-            .title("Bayes Classifier")
+            .title("Spam Classifier")
+            .fields(["spam-filter.classifier.model"])
+            .build()
+            .new_form_section()
+            .title("Hyperparameters")
+            .display_if_eq("spam-filter.classifier.model", ["ftrl-fh", "ftrl-ccfh"])
             .fields([
-                "spam-filter.bayes.score.spam",
-                "spam-filter.bayes.score.ham",
-                "spam-filter.bayes.classify.balance",
-                "spam-filter.bayes.classify.learns",
-                "spam-filter.bayes.classify.strength",
-                "spam-filter.bayes.classify.tokens.min",
-                "spam-filter.bayes.classify.tokens.hits",
-                "spam-filter.bayes.enable",
+                "spam-filter.classifier.parameters.features",
+                "spam-filter.classifier.parameters.alpha",
+                "spam-filter.classifier.parameters.beta",
+                "spam-filter.classifier.parameters.l1",
+                "spam-filter.classifier.parameters.l2",
             ])
+            .build()
+            .new_form_section()
+            .title("Hyperparameters (CCFH)")
+            .display_if_eq("spam-filter.classifier.model", ["ftrl-ccfh"])
+            .fields([
+                "spam-filter.classifier.parameters.ccfh.features",
+                "spam-filter.classifier.parameters.ccfh.alpha",
+                "spam-filter.classifier.parameters.ccfh.beta",
+                "spam-filter.classifier.parameters.ccfh.l1",
+                "spam-filter.classifier.parameters.ccfh.l2",
+            ])
+            .build()
+            .new_form_section()
+            .title("Training")
+            .display_if_eq("spam-filter.classifier.model", ["ftrl-fh", "ftrl-ccfh"])
+            .fields([
+                "spam-filter.classifier.samples.min-ham",
+                "spam-filter.classifier.samples.min-spam",
+                "spam-filter.classifier.training.frequency",
+                "spam-filter.classifier.samples.hold-for",
+            ])
+            .build()
+            .new_form_section()
+            .title("Reservoir Sampling")
+            .display_if_eq("spam-filter.classifier.model", ["ftrl-fh", "ftrl-ccfh"])
+            .fields(["spam-filter.classifier.reservoir-capacity"])
             .build()
             .new_form_section()
             .title("Auto-learn")
+            .display_if_eq("spam-filter.classifier.model", ["ftrl-fh", "ftrl-ccfh"])
             .fields([
-                "spam-filter.bayes.auto-learn.threshold.spam",
-                "spam-filter.bayes.auto-learn.threshold.ham",
-                "spam-filter.bayes.auto-learn.enable",
-            ])
-            .build()
-            .new_form_section()
-            .title("Account Classifier")
-            .fields([
-                "spam-filter.bayes.account.score.spam",
-                "spam-filter.bayes.account.score.ham",
-                "spam-filter.bayes.account.enable",
-                "spam-filter.bayes.auto-learn.card-is-ham",
-            ])
-            .build()
-            .new_form_section()
-            .title("Headers")
-            .fields([
-                "spam-filter.header.bayes.name",
-                "spam-filter.header.bayes.enable",
+                "spam-filter.classifier.auto-learn.spam-score",
+                "spam-filter.classifier.auto-learn.ham-score",
+                "spam-filter.card-is-ham.learn",
+                "spam-filter.trusted-reply.learn",
             ])
             .build()
             .build()
@@ -579,130 +567,6 @@ impl Builder<Schemas, ()> {
             ])
             .build()
             .build()
-            // Reputation settings
-            .new_schema("spam-reputation")
-            .new_field("spam-filter.reputation.enable")
-            .label("Enable Reputation tracking")
-            .help(concat!(
-                "Whether to enable the tracking the reputation of ",
-                "IP addresses, domains, senders and ASNs."
-            ))
-            .default("false")
-            .typ(Type::Boolean)
-            .build()
-            .new_field("spam-filter.reputation.expiry")
-            .label("Expiration")
-            .help(concat!(
-                "The time to keep reputation tokens in the cache. ",
-                "After this time the reputation token is considered stale."
-            ))
-            .typ(Type::Duration)
-            .default("30d")
-            .input_check([], [Validator::Required])
-            .build()
-            .new_field("spam-filter.reputation.score")
-            .label("Adjust score")
-            .help("Ratio to use when adjusting the score based on reputation")
-            .default("0.98")
-            .typ(Type::Input)
-            .input_check(
-                [Transformer::Trim],
-                [
-                    Validator::Required,
-                    Validator::MinValue((0.0).into()),
-                    Validator::MaxValue(1.0.into()),
-                ],
-            )
-            .build()
-            .new_field("spam-filter.reputation.factor")
-            .label("Factor")
-            .help("The factor to use when adjusting the score based on reputation")
-            .default("0.5")
-            .typ(Type::Input)
-            .input_check(
-                [Transformer::Trim],
-                [
-                    Validator::Required,
-                    Validator::MinValue((0.0).into()),
-                    Validator::MaxValue(1.0.into()),
-                ],
-            )
-            .build()
-            .new_field("spam-filter.reputation.weight.ip")
-            .label("IP Weight")
-            .help("The weight to assign to the IP reputation")
-            .default("0.2")
-            .typ(Type::Input)
-            .input_check(
-                [Transformer::Trim],
-                [
-                    Validator::Required,
-                    Validator::MinValue((0.0).into()),
-                    Validator::MaxValue(1.0.into()),
-                ],
-            )
-            .build()
-            .new_field("spam-filter.reputation.weight.domain")
-            .label("Domain Weight")
-            .help("The weight to assign to the domain reputation")
-            .default("0.2")
-            .typ(Type::Input)
-            .input_check(
-                [Transformer::Trim],
-                [
-                    Validator::Required,
-                    Validator::MinValue((0.0).into()),
-                    Validator::MaxValue(1.0.into()),
-                ],
-            )
-            .build()
-            .new_field("spam-filter.reputation.weight.asn")
-            .label("ASN Weight")
-            .help("The weight to assign to the ASN reputation")
-            .default("0.1")
-            .typ(Type::Input)
-            .input_check(
-                [Transformer::Trim],
-                [
-                    Validator::Required,
-                    Validator::MinValue((0.0).into()),
-                    Validator::MaxValue(1.0.into()),
-                ],
-            )
-            .build()
-            .new_field("spam-filter.reputation.weight.sender")
-            .label("Sender Weight")
-            .help("The weight to assign to the sender reputation")
-            .default("0.5")
-            .typ(Type::Input)
-            .input_check(
-                [Transformer::Trim],
-                [
-                    Validator::Required,
-                    Validator::MinValue((0.0).into()),
-                    Validator::MaxValue(1.0.into()),
-                ],
-            )
-            .build()
-            .new_form_section()
-            .title("Reputation tracking")
-            .fields([
-                "spam-filter.reputation.expiry",
-                "spam-filter.reputation.score",
-                "spam-filter.reputation.factor",
-                "spam-filter.reputation.enable",
-            ])
-            .build()
-            .new_form_section()
-            .title("Weights")
-            .fields([
-                "spam-filter.reputation.weight.ip",
-                "spam-filter.reputation.weight.sender",
-                "spam-filter.reputation.weight.domain",
-                "spam-filter.reputation.weight.asn",
-            ])
-            .build()
-            .build()
             // LLM settings
             .new_schema("spam-llm")
             .new_field("spam-filter.llm.enable")
@@ -797,21 +661,6 @@ impl Builder<Schemas, ()> {
             .label("Confidence")
             .help("The expected confidence levels in the LLM response")
             .build()
-            .new_field("spam-filter.header.llm.enable")
-            .label("Add LLM result header to messages")
-            .help("Whether to add a header containing the LLM response to messages")
-            .default("true")
-            .typ(Type::Boolean)
-            .enterprise_feature()
-            .build()
-            .new_field("spam-filter.header.llm.name")
-            .label("LLM header")
-            .help("Name of the LLM results header")
-            .default("X-Spam-LLM")
-            .typ(Type::Input)
-            .input_check([Transformer::Trim], [])
-            .enterprise_feature()
-            .build()
             .new_form_section()
             .title("LLM Classifier")
             .fields([
@@ -830,13 +679,6 @@ impl Builder<Schemas, ()> {
                 "spam-filter.llm.index.explanation",
                 "spam-filter.llm.categories",
                 "spam-filter.llm.confidence",
-            ])
-            .build()
-            .new_form_section()
-            .title("Headers")
-            .fields([
-                "spam-filter.header.llm.name",
-                "spam-filter.header.llm.enable",
             ])
             .build()
             .build()
@@ -1080,3 +922,19 @@ impl Builder<Schemas, ()> {
             .build()
     }
 }
+
+pub static MODEL_SIZES: &[(&str, &str)] = &[
+    ("16", "65k"),
+    ("17", "131k"),
+    ("18", "262k"),
+    ("19", "524k"),
+    ("20", "1M"),
+    ("21", "2M"),
+    ("22", "4M"),
+    ("23", "8M"),
+    ("24", "16M"),
+    ("25", "33M"),
+    ("26", "67M"),
+    ("27", "134M"),
+    ("28", "268M"),
+];

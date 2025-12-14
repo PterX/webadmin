@@ -222,7 +222,7 @@ pub fn SpamTrain() -> impl IntoView {
 
     let (pending, set_pending) = create_signal(false);
 
-    let mut data = expect_context::<Arc<Schemas>>().build_form("spam-train");
+    let mut data = expect_context::<Arc<Schemas>>().build_form("spam-upload");
     data.apply_defaults(false);
     let data = data.into_signal();
 
@@ -233,7 +233,7 @@ pub fn SpamTrain() -> impl IntoView {
         async move {
             set_pending.set(true);
             let result = HttpRequest::post(
-                UrlBuilder::new("/api/spam-filter/train")
+                UrlBuilder::new("/api/spam-filter/upload")
                     .with_subpath(req.train.as_str())
                     .with_optional_subpath(req.account.as_deref())
                     .finish(),
@@ -250,7 +250,7 @@ pub fn SpamTrain() -> impl IntoView {
                     data.update(|data| {
                         data.reset();
                     });
-                    alert.set(Alert::success("Training successful"));
+                    alert.set(Alert::success("Upload successful"));
                 }
                 Err(Error::Unauthorized) => {
                     use_navigate()("/login", Default::default());
@@ -263,7 +263,10 @@ pub fn SpamTrain() -> impl IntoView {
     });
 
     view! {
-        <Form title="Train Spam filter" subtitle="Train the Bayes classifier">
+        <Form
+            title="Upload Training Data"
+            subtitle="Upload training data to improve the spam filter"
+        >
 
             <FormSection>
                 <FormItem label="Train">
@@ -281,7 +284,7 @@ pub fn SpamTrain() -> impl IntoView {
             <FormButtonBar>
 
                 <Button
-                    text="Train"
+                    text="Upload"
                     color=Color::Blue
                     on_click=Callback::new(move |_| {
                         data.update(|data| {
@@ -347,7 +350,7 @@ impl Builder<Schemas, ()> {
             .build()
             .build()
             // SPAM train
-            .new_schema("spam-train")
+            .new_schema("spam-upload")
             .new_field("message")
             .typ(Type::Text)
             .input_check([], [Validator::Required])

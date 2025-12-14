@@ -10,9 +10,7 @@
  */
 
 use std::sync::Arc;
-
 use chrono::{DateTime, Utc};
-use chrono_humanize::HumanTime;
 use humansize::{format_size, DECIMAL};
 use leptos::*;
 use leptos_router::*;
@@ -51,7 +49,33 @@ struct DeletedBlob {
     pub deleted_at: DateTime<Utc>,
     #[serde(rename = "expiresAt")]
     pub expires_at: DateTime<Utc>,
-    pub collection: String,
+    pub item: DeletedItemResponse,
+}
+
+#[derive(Clone, Serialize, Deserialize, Default)]
+#[serde(tag = "type")]
+#[serde(rename_all = "camelCase")]
+pub enum DeletedItemResponse {
+    Email {
+        from: String,
+        subject: String,
+        received_at: DateTime<Utc>,
+    },
+    FileNode {
+        name: String,
+    },
+    CalendarEvent {
+        title: String,
+        start_time: DateTime<Utc>,
+    },
+    ContactCard {
+        name: String,
+    },
+    SieveScript {
+        name: String,
+    },
+    #[default]
+    None,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -190,7 +214,7 @@ pub fn UndeleteList() -> impl IntoView {
                         {
                             request.push(UndeleteRequest {
                                 hash: blob.hash.clone(),
-                                collection: blob.collection.clone(),
+                                collection: "email".to_string(),
                                 time: blob.deleted_at,
                                 cancel_deletion: blob.expires_at,
                             });
@@ -263,7 +287,10 @@ pub fn UndeleteList() -> impl IntoView {
     view! {
         <Show when=move || blob_hash.get().is_empty()>
             <ListSection>
-                <ListTable title="Restore deleted blobs" subtitle="View and restore deleted blobs">
+                <ListTable
+                    title="Restore deleted emails"
+                    subtitle="View and restore deleted emails"
+                >
                     <Toolbar slot>
                         <ToolbarButton
                             text=Signal::derive(move || {
@@ -326,10 +353,11 @@ pub fn UndeleteList() -> impl IntoView {
                                     view! {
                                         <ColumnList
                                             headers=vec![
-                                                "Type".to_string(),
+                                                "From".to_string(),
+                                                "Subject".to_string(),
                                                 "Size".to_string(),
+                                                "Received".to_string(),
                                                 "Deleted".to_string(),
-                                                "Expires".to_string(),
                                                 "".to_string(),
                                             ]
 
@@ -355,7 +383,7 @@ pub fn UndeleteList() -> impl IntoView {
                                     view! {
                                         <ZeroResults
                                             title="No results found."
-                                            subtitle="No deleted blobs were found on this account."
+                                            subtitle="No deleted emails were found on this account."
                                             button_text="".to_string()
                                         />
                                     }
@@ -478,6 +506,23 @@ pub fn UndeleteList() -> impl IntoView {
 fn UndeleteItem(blob: DeletedBlob, blob_hash: RwSignal<String>) -> impl IntoView {
     let blob_id = blob.hash.clone();
 
+    let (from, subject, received_at) = match blob.item {
+        DeletedItemResponse::Email { from, subject, received_at } => (from, subject, received_at),
+        _ => {
+            ("N/A".to_string(), "N/A".to_string(), Utc::now())
+        }
+    };
+
+    /*
+    
+                                                    "From".to_string(),
+                                                "Subject".to_string(),
+                                                "Size".to_string(),
+                                                "Received".to_string(),
+                                                "Deleted".to_string(),
+    
+     */
+
     view! {
         <tr>
             <ListItem>
@@ -489,7 +534,11 @@ fn UndeleteItem(blob: DeletedBlob, blob_hash: RwSignal<String>) -> impl IntoView
             </ListItem>
 
             <ListItem>
-                <span class="text-sm text-gray-500">{blob.collection}</span>
+                <span class="text-sm text-gray-500">{from}</span>
+            </ListItem>
+
+            <ListItem>
+                <span class="text-sm text-gray-500">{subject}</span>
             </ListItem>
 
             <ListItem>
@@ -497,13 +546,11 @@ fn UndeleteItem(blob: DeletedBlob, blob_hash: RwSignal<String>) -> impl IntoView
             </ListItem>
 
             <ListItem>
-                <span class="text-sm text-gray-500">{blob.deleted_at.format_date_time()}</span>
+                <span class="text-sm text-gray-500">{received_at.format_date_time()}</span>
             </ListItem>
 
             <ListItem>
-                <span class="text-sm text-gray-500">
-                    {HumanTime::from(blob.expires_at).to_string()}
-                </span>
+                <span class="text-sm text-gray-500">{blob.deleted_at.format_date_time()}</span>
             </ListItem>
 
             <ListItem subclass="px-6 py-1.5">

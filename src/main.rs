@@ -328,7 +328,7 @@ pub fn App() -> impl IntoView {
                     />
 
                     <ProtectedRoute
-                        path="/spam/train"
+                        path="/spam/upload"
                         view=SpamTrain
                         redirect_path="/login"
                         condition=move || {
@@ -665,10 +665,10 @@ impl LayoutBuilder {
                 )
                 .create("Spam filter")
                 .icon(view! { <IconShieldCheck/> })
-                .create("Train")
-                .route("/spam/train")
+                .create("Upload samples")
+                .route("/spam/upload")
                 .insert(true)
-                .create("Test")
+                .create("Test filter")
                 .route("/spam/test")
                 .insert(true)
                 .insert(permissions.has_access(Permission::SpamFilterTrain))
@@ -767,10 +767,10 @@ impl LayoutBuilder {
                 )
                 .create("Spam filter")
                 .icon(view! { <IconShieldCheck/> })
-                .create("Train")
-                .route("/spam/train")
+                .create("Upload samples")
+                .route("/spam/upload")
                 .insert(true)
-                .create("Test")
+                .create("Test filter")
                 .route("/spam/test")
                 .insert(true)
                 .insert(permissions.has_access(Permission::SpamFilterTrain))

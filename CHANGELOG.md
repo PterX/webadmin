@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.1.34] - 2025-12-16
+
+## Added
+- New spam classifier.
+- New undelete interface.
+
+### Changed
+
+### Fixed
+
 ## [0.1.33] - 2025-10-22
 
 ## Added

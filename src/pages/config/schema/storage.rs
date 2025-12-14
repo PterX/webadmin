@@ -131,7 +131,7 @@ impl Builder<Schemas, ()> {
             .default("false")
             .typ(Type::Boolean)
             .build()
-            .new_field("storage.full-text.default-language")
+            .new_field("storage.search-index.default-language")
             .label("Default Language")
             .help(concat!(
                 "Default language to use when language detection is not possible"
@@ -139,6 +139,44 @@ impl Builder<Schemas, ()> {
             .typ(Type::Input)
             .default("en")
             .input_check([Transformer::Trim], [Validator::Required])
+            .build()
+            .new_field("storage.search-index.batch-size")
+            .label("Indexing Batch Size")
+            .help(concat!(
+                "Number of items to process in each batch during indexing operations"
+            ))
+            .typ(Type::Input)
+            .default("100")
+            .input_check(
+                [Transformer::Trim],
+                [Validator::Required, Validator::MinValue(1.into())],
+            )
+            .build()
+            .new_field("storage.search-index.email.enable")
+            .label("Enable Email Searching")
+            .help(concat!(
+                "Enable full-text search indexing for email content and metadata"
+            ))
+            .typ(Type::Input)
+            .typ(Type::Boolean)
+            .default("true")
+            .new_field("storage.search-index.calendar.enable")
+            .label("Enable Calendar Searching")
+            .help(concat!(
+                "Enable full-text search indexing for calendar data"
+            ))
+            .default("true")
+            .new_field("storage.search-index.contacts.enable")
+            .label("Enable Contacts Searching")
+            .help(concat!(
+                "Enable full-text search indexing for contacts data"
+            ))
+            .default("true")
+            .new_field("storage.search-index.tracing.enable")
+            .label("Enable Tracing Searching")
+            .help(concat!("Enable full-text search indexing for tracing data"))
+            .default("true")
+            .enterprise_feature()
             .build()
             .new_field("account.purge.frequency")
             .label("Frequency")
@@ -192,8 +230,16 @@ impl Builder<Schemas, ()> {
             .fields(["storage.blob", "storage.undelete.retention"])
             .build()
             .new_form_section()
-            .title("Full Text Index Store")
-            .fields(["storage.fts", "storage.full-text.default-language"])
+            .title("Search Store")
+            .fields([
+                "storage.fts",
+                "storage.search-index.default-language",
+                "storage.search-index.batch-size",
+                "storage.search-index.email.enable",
+                "storage.search-index.calendar.enable",
+                "storage.search-index.contacts.enable",
+                "storage.search-index.tracing.enable",
+            ])
             .build()
             .new_form_section()
             .title("In-Memory Store")

@@ -10,15 +10,12 @@ use leptos_router::use_navigate;
 use crate::{
     components::{
         icon::{
-            IconCancel, IconCheckCircle, IconComputerDesktop, IconDocumentMagnifyingGlass,
-            IconPower, IconRefresh, IconShieldCheck,
+            IconCancel, IconCheckCircle, IconComputerDesktop, IconDocumentMagnifyingGlass, IconLaunch, IconPower, IconRefresh, IconShieldCheck
         },
-        messages::alert::{use_alerts, Alert, Alerts},
+        messages::alert::{Alert, Alerts, use_alerts},
     },
     core::{
-        http::{self, HttpRequest},
-        oauth::use_authorization,
-        Permission,
+        Permission, http::{self, HttpRequest}, oauth::use_authorization
     },
     pages::config::ReloadSettings,
 };
@@ -50,13 +47,29 @@ const ACTIONS: &[Action] = &[
         success_message: "Configuration is valid",
         permission: Permission::SettingsReload,
     },
-    Action {
+    /*Action {
         title: "Restart server",
         description: "Restarts the server. This will interrupt any active connections.",
         icon: "power",
         url: "/api/restart",
         success_message: "Restarting server, try reloading this page in a few seconds.",
         permission: Permission::Restart,
+    },*/
+    Action {
+        title: "Train Spam classifier",
+        description: "Train the spam classifier with the available data.",
+        icon: "launch",
+        url: "/api/spam-filter/train/start",
+        success_message: "Successfully requested model training",
+        permission: Permission::SpamFilterTrain,
+    },
+    Action {
+        title: "Re-train Spam classifier",
+        description: "Deletes the existing model and re-trains the Spam classifier from scratch.",
+        icon: "cancel",
+        url: "/api/spam-filter/train/reset",
+        success_message: "Successfully requested model re-training",
+        permission: Permission::SpamFilterTrain,
     },
     Action {
         title: "Update Spam rules",
@@ -75,21 +88,14 @@ const ACTIONS: &[Action] = &[
         permission: Permission::WebadminUpdate,
     },
     Action {
-        title: "Reindex FTS",
+        title: "Reindex email search",
         description: "Rebuilds the full-text search index for all accounts. This may take some time.",
         icon: "document_magnifying_glass",
-        url: "/api/store/reindex",
+        url: "/api/store/reindex/email",
         success_message: "Successfully requested FTS reindex",
         permission: Permission::FtsReindex,
     },
-    Action {
-        title: "Delete Bayes Model",
-        description: "Deletes the Bayes model used for Spam filtering. This will reset the Spam filter.",
-        icon: "cancel",
-        url: "/api/store/purge/in-memory/default/bayes-global",
-        success_message: "Successfully requested Bayes model deletion",
-        permission: Permission::PurgeInMemoryStore,
-    },
+
 
 ];
 
@@ -126,7 +132,7 @@ pub fn Maintenance() -> impl IntoView {
             } else {
                 match HttpRequest::get(action.url)
                     .with_authorization(&auth)
-                    .send::<Option<String>>()
+                    .send::<serde_json::Value>()
                     .await
                 {
                     Ok(_) => {
@@ -160,6 +166,7 @@ pub fn Maintenance() -> impl IntoView {
             "shield_check" => view! { <IconShieldCheck attr:class=icon_class/> },
             "computer_desktop" => view! { <IconComputerDesktop attr:class=icon_class/> },
             "document_magnifying_glass" => view! { <IconDocumentMagnifyingGlass attr:class=icon_class/> },
+            "launch" => view! { <IconLaunch attr:class=icon_class/> },
             "cancel" => view! { <IconCancel attr:class=icon_class/> },
             _ => unreachable!("No icon specified"),
         };

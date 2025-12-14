@@ -56,6 +56,7 @@ impl Builder<Schemas, ()> {
                     ("redis", "Redis/Valkey"),
                     ("nats", "NATS PubSub"),
                     ("elasticsearch", "ElasticSearch"),
+                    ("meilisearch", "MeiliSearch"),
                     ("azure", "Azure blob storage"),
                     ("fs", "Filesystem"),
                     ("sql-read-replica", "SQL with Replicas"),
@@ -75,7 +76,7 @@ impl Builder<Schemas, ()> {
                 source: Source::Static(&[("none", "None"), ("lz4", "LZ4")]),
                 typ: SelectType::Single,
             })
-            .display_if_ne("type", ["redis", "memory", "elasticsearch"])
+            .display_if_ne("type", ["redis", "memory", "elasticsearch", "meilisearch"])
             .build()
             // Path
             .new_field("path")
@@ -148,7 +149,7 @@ impl Builder<Schemas, ()> {
             .label("Username")
             .help("Username to connect to the database")
             .default("stalwart")
-            .display_if_eq("type", ["postgresql", "mysql", "elasticsearch", "nats"])
+            .display_if_eq("type", ["postgresql", "mysql", "nats"])
             .display_if_eq("redis-type", ["cluster"])
             .typ(Type::Input)
             .input_check([Transformer::Trim], [])
@@ -157,8 +158,31 @@ impl Builder<Schemas, ()> {
             .new_field("password")
             .label("Password")
             .help("Password to connect to the database")
-            .display_if_eq("type", ["postgresql", "mysql", "elasticsearch", "nats"])
+            .display_if_eq("type", ["postgresql", "mysql", "nats"])
             .display_if_eq("redis-type", ["cluster"])
+            .typ(Type::Secret)
+            .build()
+            // Username
+            .new_field("auth.username")
+            .label("Username")
+            .help("Username to connect to the store")
+            .default("stalwart")
+            .display_if_eq("type", ["elasticsearch", "meilisearch"])
+            .typ(Type::Input)
+            .input_check([Transformer::Trim], [])
+            .build()
+            // Password
+            .new_field("auth.secret")
+            .label("Password")
+            .help("Password to connect to the store")
+            .display_if_eq("type", ["elasticsearch", "meilisearch"])
+            .typ(Type::Secret)
+            .build()
+            // Bearer Token
+            .new_field("auth.token")
+            .label("Bearer Token")
+            .help("Bearer token to connect to the store")
+            .display_if_eq("type", ["elasticsearch", "meilisearch"])
             .typ(Type::Secret)
             .build()
             // Timeout
@@ -173,7 +197,7 @@ impl Builder<Schemas, ()> {
             .new_field("purge.frequency")
             .label("Purge Frequency")
             .help("How often to purge the database. Expects a cron expression")
-            .display_if_ne("type", ["redis", "memory", "elasticsearch"])
+            .display_if_ne("type", ["redis", "memory", "elasticsearch", "meilisearch"])
             .default("0 3 *")
             .typ(Type::Cron)
             .input_check([Transformer::Trim], [Validator::Required])
@@ -233,7 +257,10 @@ impl Builder<Schemas, ()> {
             .new_field("tls.allow-invalid-certs")
             .label("Allow Invalid Certs")
             .help("Allow invalid TLS certificates when connecting to the store")
-            .display_if_eq("type", ["postgresql", "mysql", "elasticsearch"])
+            .display_if_eq(
+                "type",
+                ["postgresql", "mysql", "elasticsearch", "meilisearch"],
+            )
             .default("false")
             .typ(Type::Boolean)
             .build()
@@ -241,8 +268,9 @@ impl Builder<Schemas, ()> {
             .new_field("url")
             .label("URL")
             .help("URL of the store")
-            .display_if_eq("type", ["elasticsearch"])
+            .display_if_eq("type", ["elasticsearch", "meilisearch"])
             .default_if_eq("type", ["elasticsearch"], "https://localhost:9200")
+            .default_if_eq("type", ["meilisearch"], "https://localhost:7700")
             .typ(Type::Input)
             .input_check([Transformer::Trim], [Validator::Required, Validator::IsUrl])
             .build()
@@ -408,14 +436,9 @@ impl Builder<Schemas, ()> {
             )
             .build()
             // ElasticSearch specific
-            .new_field("cloud-id")
-            .label("Cloud Id")
-            .help("Cloud ID for the ElasticSearch cluster")
-            .display_if_eq("type", ["elasticsearch"])
-            .placeholder("my-cloud-id")
+            .new_field("index.shards")
             .typ(Type::Input)
             .input_check([Transformer::Trim], [])
-            .new_field("index.shards")
             .label("Number of Shards")
             .help("Number of shards for the index")
             .default("3")
@@ -718,7 +741,6 @@ impl Builder<Schemas, ()> {
                 "max-allowed-packet",
                 "region",
                 "endpoint",
-                "cloud-id",
                 "profile",
                 "timeout",
                 "primary",
@@ -758,6 +780,7 @@ impl Builder<Schemas, ()> {
                     "postgresql",
                     "mysql",
                     "elasticsearch",
+                    "meilisearch",
                     "s3",
                     "azure",
                     "nats",
@@ -767,6 +790,9 @@ impl Builder<Schemas, ()> {
             .fields([
                 "user",
                 "password",
+                "auth.username",
+                "auth.secret",
+                "auth.token",
                 "access-key",
                 "secret-key",
                 "security-token",
@@ -803,7 +829,16 @@ impl Builder<Schemas, ()> {
             .build()
             .new_form_section()
             .title("TLS")
-            .display_if_eq("type", ["postgresql", "mysql", "elasticsearch", "nats"])
+            .display_if_eq(
+                "type",
+                [
+                    "postgresql",
+                    "mysql",
+                    "elasticsearch",
+                    "meilisearch",
+                    "nats",
+                ],
+            )
             .fields(["tls.enable", "tls.allow-invalid-certs"])
             .build()
             .new_form_section()

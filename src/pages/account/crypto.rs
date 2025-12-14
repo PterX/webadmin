@@ -12,15 +12,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     components::{
-        form::{
-            button::Button,
-            input::{InputPassword, InputText, TextArea},
-            select::Select,
-            Form, FormButtonBar, FormElement, FormItem, FormSection,
-        },
-        messages::alert::{use_alerts, Alert},
-        skeleton::Skeleton,
-        Color,
+        Color, form::{
+            Form, FormButtonBar, FormElement, FormItem, FormSection, button::Button, input::{InputPassword, InputSwitch, InputText, TextArea}, select::Select
+        }, messages::alert::{Alert, use_alerts}, skeleton::Skeleton
     },
     core::{
         form::FormData,
@@ -37,10 +31,12 @@ pub enum EncryptionType {
     PGP {
         algo: Algorithm,
         certs: String,
+        allow_spam_training: bool,
     },
     SMIME {
         algo: Algorithm,
         certs: String,
+        allow_spam_training: bool,
     },
     #[default]
     Disabled,
@@ -195,8 +191,14 @@ pub fn ManageCrypto() -> impl IntoView {
                                         >
                                             <TextArea element=FormElement::new("certs", data)/>
                                         </FormItem>
+                                        <FormItem label="" hide=has_no_crypto>
+                                            <InputSwitch
+                                                label="Train the spam classifier before encrypting my messages"
+                                                element=FormElement::new("allow_spam_training", data)
+                                                disabled=has_no_crypto
+                                            />
+                                        </FormItem>
                                     </Show>
-
                                 </FormSection>
                             }
                                 .into_view(),
@@ -241,15 +243,17 @@ pub fn ManageCrypto() -> impl IntoView {
 impl FormData {
     fn from_encryption_params(&mut self, params: &EncryptionType) {
         match params {
-            EncryptionType::PGP { algo, certs } => {
+            EncryptionType::PGP { algo, certs, allow_spam_training } => {
                 self.set("type", EncryptionMethod::PGP.as_str());
                 self.set("algo", algo.as_str());
                 self.set("certs", certs);
+                self.set("allow_spam_training", if *allow_spam_training { "true" } else { "false" });
             }
-            EncryptionType::SMIME { algo, certs } => {
+            EncryptionType::SMIME { algo, certs, allow_spam_training } => {
                 self.set("type", EncryptionMethod::SMIME.as_str());
                 self.set("algo", algo.as_str());
                 self.set("certs", certs);
+                self.set("allow_spam_training", if *allow_spam_training { "true" } else { "false" });
             }
             EncryptionType::Disabled => {
                 self.set("type", "");
@@ -263,10 +267,12 @@ impl FormData {
                 Some(EncryptionMethod::PGP) => EncryptionType::PGP {
                     algo: self.value("algo").unwrap(),
                     certs: self.value("certs").unwrap(),
+                    allow_spam_training: self.value("allow_spam_training").unwrap_or(false),
                 },
                 Some(EncryptionMethod::SMIME) => EncryptionType::SMIME {
                     algo: self.value("algo").unwrap(),
                     certs: self.value("certs").unwrap(),
+                    allow_spam_training: self.value("allow_spam_training").unwrap_or(false),
                 },
                 None => EncryptionType::Disabled,
             }

@@ -178,11 +178,6 @@ pub fn PrincipalList() -> impl IntoView {
                 "/api/store/purge/account",
                 item.to_string(),
             ),
-            ApiAction::DeleteBayes(item) => (
-                "Bayes model deletion",
-                "/api/store/purge/in-memory/default/bayes-account",
-                item.to_string(),
-            ),
         };
         let auth = auth.get();
 
@@ -493,7 +488,6 @@ struct Parameters {
 
 enum ApiAction {
     PurgeAccount(String),
-    DeleteBayes(String),
 }
 
 #[component]
@@ -768,29 +762,6 @@ fn PrincipalItem(principal: Principal, params: Parameters) -> impl IntoView {
                             >
 
                                 Empty Trash
-                            </a>
-                            <a
-                                class="flex items-center gap-x-3 py-2 px-3 rounded-lg text-sm text-gray-800 hover:bg-gray-100 focus:ring-2 focus:ring-blue-500 dark:text-neutral-400 dark:hover:bg-neutral-700 dark:hover:text-neutral-300"
-                                on:click=move |_| {
-                                    show_dropdown.set(String::new());
-                                    params
-                                        .api_action
-                                        .dispatch(
-                                            ApiAction::DeleteBayes(
-                                                principal.get_untracked().name_or_empty(),
-                                            ),
-                                        );
-                                }
-
-                                class:hidden=move || {
-                                    !matches!(
-                                        selected_type,
-                                        PrincipalType::Individual | PrincipalType::Group
-                                    )
-                                }
-                            >
-
-                                Delete Bayes model
                             </a>
                             <a
                                 class="flex items-center gap-x-3 py-2 px-3 rounded-lg text-sm text-gray-800 hover:bg-gray-100 focus:ring-2 focus:ring-blue-500 dark:text-neutral-400 dark:hover:bg-neutral-700 dark:hover:text-neutral-300"

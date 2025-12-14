@@ -182,10 +182,6 @@ impl Builder<Schemas, ()> {
                 "Maximum size of the address books and contacts cache"
             ))
             .default("10485760")
-            .new_field("cache.bayes.size")
-            .label("Bayes Model")
-            .help(concat!("Maximum size of the Bayes model cache"))
-            .default("10485760")
             .build()
             .new_form_section()
             .title("Data Cache")
@@ -206,7 +202,7 @@ impl Builder<Schemas, ()> {
             .build()
             .new_form_section()
             .title("Spam Filter Cache")
-            .fields(["cache.bayes.size", "cache.dns.rbl.size"])
+            .fields(["cache.dns.rbl.size"])
             .build()
             .new_form_section()
             .title("DNS Record Cache")
@@ -400,10 +396,10 @@ impl Builder<Schemas, ()> {
             .help(concat!(
                 "List of node ids that are responsible for full-text search indexing"
             ))
-            .new_field("cluster.roles.bayes-training")
-            .label("Bayes Training")
+            .new_field("cluster.roles.spam-training")
+            .label("Spam Classifier Training")
             .help(concat!(
-                "List of node ids that are responsible for training the Bayes spam model"
+                "The node id that is responsible for training the spam classifier model"
             ))
             .new_field("cluster.roles.imip-processing")
             .label("iMIP Processing")
@@ -431,7 +427,7 @@ impl Builder<Schemas, ()> {
                 "cluster.roles.metrics.push",
                 "cluster.roles.push-notifications",
                 "cluster.roles.fts-indexing",
-                "cluster.roles.bayes-training",
+                "cluster.roles.spam-training",
                 "cluster.roles.imip-processing",
                 "cluster.roles.calendar-alerts",
             ])
