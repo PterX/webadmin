@@ -59,18 +59,10 @@ pub fn Authorize() -> impl IntoView {
                                 let url = if let Some(state) = state {
                                     format!(
                                         "{}{}code={}&state={}",
-                                        redirect_uri,
-                                        sep,
-                                        response.code,
-                                        state
+                                        redirect_uri, sep, response.code, state
                                     )
                                 } else {
-                                    format!(
-                                        "{}{}code={}",
-                                        redirect_uri,
-                                        sep,
-                                        response.code
-                                    )
+                                    format!("{}{}code={}", redirect_uri, sep, response.code)
                                 };
 
                                 if let Err(err) = window().location().set_href(&url) {

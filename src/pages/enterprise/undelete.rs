@@ -9,12 +9,12 @@
  * Unauthorized use, modification, or distribution is strictly prohibited.
  */
 
-use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use humansize::{format_size, DECIMAL};
 use leptos::*;
 use leptos_router::*;
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 use crate::{
     components::{
@@ -507,21 +507,23 @@ fn UndeleteItem(blob: DeletedBlob, blob_hash: RwSignal<String>) -> impl IntoView
     let blob_id = blob.hash.clone();
 
     let (from, subject, received_at) = match blob.item {
-        DeletedItemResponse::Email { from, subject, received_at } => (from, subject, received_at),
-        _ => {
-            ("N/A".to_string(), "N/A".to_string(), Utc::now())
-        }
+        DeletedItemResponse::Email {
+            from,
+            subject,
+            received_at,
+        } => (from, subject, received_at),
+        _ => ("N/A".to_string(), "N/A".to_string(), Utc::now()),
     };
 
     /*
-    
-                                                    "From".to_string(),
-                                                "Subject".to_string(),
-                                                "Size".to_string(),
-                                                "Received".to_string(),
-                                                "Deleted".to_string(),
-    
-     */
+
+                                                   "From".to_string(),
+                                               "Subject".to_string(),
+                                               "Size".to_string(),
+                                               "Received".to_string(),
+                                               "Deleted".to_string(),
+
+    */
 
     view! {
         <tr>

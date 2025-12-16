@@ -12,9 +12,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     components::{
-        Color, form::{
-            Form, FormButtonBar, FormElement, FormItem, FormSection, button::Button, input::{InputPassword, InputSwitch, InputText, TextArea}, select::Select
-        }, messages::alert::{Alert, use_alerts}, skeleton::Skeleton
+        form::{
+            button::Button,
+            input::{InputPassword, InputSwitch, InputText, TextArea},
+            select::Select,
+            Form, FormButtonBar, FormElement, FormItem, FormSection,
+        },
+        messages::alert::{use_alerts, Alert},
+        skeleton::Skeleton,
+        Color,
     },
     core::{
         form::FormData,
@@ -243,17 +249,39 @@ pub fn ManageCrypto() -> impl IntoView {
 impl FormData {
     fn from_encryption_params(&mut self, params: &EncryptionType) {
         match params {
-            EncryptionType::PGP { algo, certs, allow_spam_training } => {
+            EncryptionType::PGP {
+                algo,
+                certs,
+                allow_spam_training,
+            } => {
                 self.set("type", EncryptionMethod::PGP.as_str());
                 self.set("algo", algo.as_str());
                 self.set("certs", certs);
-                self.set("allow_spam_training", if *allow_spam_training { "true" } else { "false" });
+                self.set(
+                    "allow_spam_training",
+                    if *allow_spam_training {
+                        "true"
+                    } else {
+                        "false"
+                    },
+                );
             }
-            EncryptionType::SMIME { algo, certs, allow_spam_training } => {
+            EncryptionType::SMIME {
+                algo,
+                certs,
+                allow_spam_training,
+            } => {
                 self.set("type", EncryptionMethod::SMIME.as_str());
                 self.set("algo", algo.as_str());
                 self.set("certs", certs);
-                self.set("allow_spam_training", if *allow_spam_training { "true" } else { "false" });
+                self.set(
+                    "allow_spam_training",
+                    if *allow_spam_training {
+                        "true"
+                    } else {
+                        "false"
+                    },
+                );
             }
             EncryptionType::Disabled => {
                 self.set("type", "");

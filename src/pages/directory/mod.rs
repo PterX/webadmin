@@ -810,7 +810,6 @@ pub static PERMISSIONS: &[(&str, &str)] = &[
         "dav-sync-collection",
         "Synchronize collection changes with client",
     ),
-    ("delete-system-folders", "Delete of system folders"),
     (
         "dkim-signature-create",
         "Create DKIM signatures for email authentication",
@@ -1180,10 +1179,7 @@ pub static PERMISSIONS: &[(&str, &str)] = &[
     ("sieve-put-script", "Upload Sieve scripts"),
     ("sieve-rename-script", "Rename Sieve scripts"),
     ("sieve-set-active", "Set active Sieve script"),
-    (
-        "spam-filter-classify",
-        "Classify emails with the spam filter",
-    ),
+    ("spam-filter-test", "Test the spam filter"),
     ("spam-filter-train", "Train the spam filter"),
     ("spam-filter-update", "Modify spam filter settings"),
     ("tenant-create", "Add new tenants"),

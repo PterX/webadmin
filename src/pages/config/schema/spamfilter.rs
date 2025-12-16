@@ -200,7 +200,7 @@ impl Builder<Schemas, ()> {
                 ]),
             })
             .build()
-            .new_field("spam-filter.classifier.reservoir-capacity")
+            .new_field("spam-filter.classifier.samples.reservoir-capacity")
             .label("Capacity")
             .help("The capacity of the training sample reservoir")
             .default("1024")
@@ -252,7 +252,7 @@ impl Builder<Schemas, ()> {
             .new_field("spam-filter.classifier.samples.min-ham")
             .label("Min. Ham samples")
             .help("Minimum number of ham samples required for training")
-            .default("10")
+            .default("100")
             .typ(Type::Input)
             .input_check(
                 [Transformer::Trim],
@@ -266,7 +266,7 @@ impl Builder<Schemas, ()> {
             .new_field("spam-filter.classifier.samples.min-spam")
             .label("Min. Spam samples")
             .help("Minimum number of spam samples required for training")
-            .default("10")
+            .default("100")
             .typ(Type::Input)
             .input_check(
                 [Transformer::Trim],
@@ -276,6 +276,18 @@ impl Builder<Schemas, ()> {
                     Validator::MaxValue(10000i64.into()),
                 ],
             )
+            .build()
+            .new_field("spam-filter.classifier.features.log-scale")
+            .label("Sublinear term frequency scaling (log1p)")
+            .help("Whether to apply sublinear scaling to feature values in the spam classifier")
+            .default("true")
+            .typ(Type::Boolean)
+            .build()
+            .new_field("spam-filter.classifier.features.l2-normalize")
+            .label("L2 (euclidean) normalization")
+            .help("Whether to L2-normalize feature values in the spam classifier")
+            .default("true")
+            .typ(Type::Boolean)
             .build()
             .new_field("spam-filter.classifier.training.frequency")
             .label("Training frequency")
@@ -417,6 +429,8 @@ impl Builder<Schemas, ()> {
                 "spam-filter.classifier.parameters.beta",
                 "spam-filter.classifier.parameters.l1",
                 "spam-filter.classifier.parameters.l2",
+                "spam-filter.classifier.features.log-scale",
+                "spam-filter.classifier.features.l2-normalize",
             ])
             .build()
             .new_form_section()
@@ -443,7 +457,7 @@ impl Builder<Schemas, ()> {
             .new_form_section()
             .title("Reservoir Sampling")
             .display_if_eq("spam-filter.classifier.model", ["ftrl-fh", "ftrl-ccfh"])
-            .fields(["spam-filter.classifier.reservoir-capacity"])
+            .fields(["spam-filter.classifier.samples.reservoir-capacity"])
             .build()
             .new_form_section()
             .title("Auto-learn")

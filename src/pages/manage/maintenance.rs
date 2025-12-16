@@ -10,12 +10,15 @@ use leptos_router::use_navigate;
 use crate::{
     components::{
         icon::{
-            IconCancel, IconCheckCircle, IconComputerDesktop, IconDocumentMagnifyingGlass, IconLaunch, IconPower, IconRefresh, IconShieldCheck
+            IconCancel, IconCheckCircle, IconComputerDesktop, IconDocumentMagnifyingGlass,
+            IconLaunch, IconPower, IconRefresh, IconShieldCheck,
         },
-        messages::alert::{Alert, Alerts, use_alerts},
+        messages::alert::{use_alerts, Alert, Alerts},
     },
     core::{
-        Permission, http::{self, HttpRequest}, oauth::use_authorization
+        http::{self, HttpRequest},
+        oauth::use_authorization,
+        AccessToken, Permission, Permissions,
     },
     pages::config::ReloadSettings,
 };
@@ -30,7 +33,7 @@ struct Action {
     permission: Permission,
 }
 
-const ACTIONS: &[Action] = &[
+const ACTIONS_GENERAL: &[Action] = &[
     Action {
         title: "Reload configuration",
         description: "Performs a hot reload of the server settings. Changes to listeners or stores require a server restart.",
@@ -47,14 +50,17 @@ const ACTIONS: &[Action] = &[
         success_message: "Configuration is valid",
         permission: Permission::SettingsReload,
     },
-    /*Action {
-        title: "Restart server",
-        description: "Restarts the server. This will interrupt any active connections.",
-        icon: "power",
-        url: "/api/restart",
-        success_message: "Restarting server, try reloading this page in a few seconds.",
-        permission: Permission::Restart,
-    },*/
+    Action {
+        title: "Update Webadmin",
+        description: "Downloads and installs the latest version of the Stalwart Webadmin from the Github repository.",
+        icon: "computer_desktop",
+        url: "/api/update/webadmin",
+        success_message: "Successfully updated the web admin to the latest version",
+        permission: Permission::WebadminUpdate,
+    }
+];
+
+const ACTIONS_SPAM: &[Action] = &[
     Action {
         title: "Train Spam classifier",
         description: "Train the spam classifier with the available data.",
@@ -73,30 +79,48 @@ const ACTIONS: &[Action] = &[
     },
     Action {
         title: "Update Spam rules",
-        description: "Downloads and installs the latest Spam filter rules from the Github repository.",
+        description:
+            "Downloads and installs the latest Spam filter rules from the Github repository.",
         icon: "shield_check",
         url: "/api/update/spam-filter",
         success_message: "Successfully updated SPAM rules to the latest version",
         permission: Permission::SpamFilterUpdate,
     },
-    Action {
-        title: "Update Webadmin",
-        description: "Downloads and installs the latest version of the Stalwart Webadmin from the Github repository.",
-        icon: "computer_desktop",
-        url: "/api/update/webadmin",
-        success_message: "Successfully updated the web admin to the latest version",
-        permission: Permission::WebadminUpdate,
-    },
+];
+
+const ACTIONS_INDEX: &[Action] = &[
     Action {
         title: "Reindex email search",
-        description: "Rebuilds the full-text search index for all accounts. This may take some time.",
+        description: "Rebuilds the e-mail full-text search index for all accounts. This may take some time.",
         icon: "document_magnifying_glass",
         url: "/api/store/reindex/email",
         success_message: "Successfully requested FTS reindex",
         permission: Permission::FtsReindex,
     },
-
-
+        Action {
+        title: "Reindex calendar search",
+        description: "Rebuilds the calendar full-text search index for all accounts. This may take some time.",
+        icon: "document_magnifying_glass",
+        url: "/api/store/reindex/calendar",
+        success_message: "Successfully requested FTS reindex",
+        permission: Permission::FtsReindex,
+    },
+        Action {
+        title: "Reindex contacts search",
+        description: "Rebuilds the contacts full-text search index for all accounts. This may take some time.",
+        icon: "document_magnifying_glass",
+        url: "/api/store/reindex/contacts",
+        success_message: "Successfully requested FTS reindex",
+        permission: Permission::FtsReindex,
+    },
+        Action {
+        title: "Reindex tracing search",
+        description: "Rebuilds the tracing full-text search index for all accounts. This may take some time.",
+        icon: "document_magnifying_glass",
+        url: "/api/store/reindex/tracing",
+        success_message: "Successfully requested FTS reindex",
+        permission: Permission::FtsReindex,
+    },
 ];
 
 #[component]
@@ -105,9 +129,57 @@ pub fn Maintenance() -> impl IntoView {
     let alert = use_alerts();
     let (pending, set_pending) = create_signal(false);
 
+    let permissions = auth.get_untracked().permissions().clone();
+    let actions_general = action_to_view(
+        ACTIONS_GENERAL,
+        &permissions,
+        auth,
+        alert,
+        pending,
+        set_pending,
+    );
+    let actions_spam = action_to_view(
+        ACTIONS_SPAM,
+        &permissions,
+        auth,
+        alert,
+        pending,
+        set_pending,
+    );
+    let actions_index = action_to_view(
+        ACTIONS_INDEX,
+        &permissions,
+        auth,
+        alert,
+        pending,
+        set_pending,
+    );
+
+    view! {
+        <div class="max-w-5xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14 mx-auto">
+            <Alerts/>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">{actions_general}</div>
+        </div>
+        <div class="max-w-5xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14 mx-auto">
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">{actions_spam}</div>
+        </div>
+        <div class="max-w-5xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14 mx-auto">
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">{actions_index}</div>
+        </div>
+    }
+}
+
+fn action_to_view(
+    actions: &'static [Action],
+    permissions: &Permissions,
+    auth: RwSignal<AccessToken>,
+    alert: RwSignal<Alert>,
+    pending: ReadSignal<bool>,
+    set_pending: WriteSignal<bool>,
+) -> impl IntoView {
     let execute = create_action(move |idx: &usize| {
         let auth = auth.get();
-        let action = ACTIONS[*idx];
+        let action = actions[*idx];
 
         async move {
             set_pending.set(true);
@@ -156,8 +228,7 @@ pub fn Maintenance() -> impl IntoView {
         }
     });
 
-    let permissions = auth.get_untracked().permissions().clone();
-    let actions = ACTIONS.iter().enumerate().filter_map(|(idx, action)| {
+    actions.iter().enumerate().map(|(idx, action)| {
         let icon_class = "mt-1 flex-shrink-0 size-5 text-gray-800 dark:text-gray-200";
         let icon = match action.icon {
             "refresh" => view! { <IconRefresh attr:class=icon_class/> },
@@ -194,18 +265,5 @@ pub fn Maintenance() -> impl IntoView {
                 </div>
             </a>
         })
-
-    }).collect_view();
-
-    view! {
-        <div class="max-w-5xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14 mx-auto">
-            <Alerts/>
-            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
-
-                {actions}
-
-            </div>
-
-        </div>
-    }
+    }).collect_view()
 }
