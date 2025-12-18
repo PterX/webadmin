@@ -214,31 +214,23 @@ impl Builder<Schemas, ()> {
                 ],
             )
             .build()
-            .new_field("spam-filter.classifier.auto-learn.spam-score")
-            .label("Auto-learn Spam score")
-            .help("Score threshold to auto-learn spam messages")
-            .default("8.0")
-            .typ(Type::Input)
-            .input_check(
-                [Transformer::Trim],
-                [
-                    Validator::Required,
-                    Validator::MinValue((0.0).into()),
-                    Validator::MaxValue(100.0.into()),
-                ],
-            )
+            .new_field("spam-filter.classifier.auto-learn.spam-trap")
+            .label("Learn spam from spam traps")
+            .help("Train as spam messages sent to spam trap addresses")
+            .default("true")
+            .typ(Type::Boolean)
             .build()
-            .new_field("spam-filter.classifier.auto-learn.ham-score")
-            .label("Auto-learn Ham score")
-            .help("Score threshold to auto-learn ham messages")
-            .default("-8.0")
+            .new_field("spam-filter.classifier.auto-learn.spam-rbl-count")
+            .label("RBL hits")
+            .help("Number of DNSBL servers that list the sender to auto-learn as spam")
+            .default("2")
             .typ(Type::Input)
             .input_check(
                 [Transformer::Trim],
                 [
                     Validator::Required,
-                    Validator::MinValue((-100.0).into()),
-                    Validator::MaxValue(0.0.into()),
+                    Validator::MinValue((0).into()),
+                    Validator::MaxValue((100).into()),
                 ],
             )
             .build()
@@ -296,7 +288,7 @@ impl Builder<Schemas, ()> {
             .default("12h")
             .build()
             .new_field("spam-filter.card-is-ham.learn")
-            .label("Auto-learn ham from address book")
+            .label("Learn ham from address books")
             .help(concat!(
                 "Whether to automatically learn ham messages ",
                 "from senders in the user's address book.",
@@ -305,7 +297,7 @@ impl Builder<Schemas, ()> {
             .typ(Type::Boolean)
             .build()
             .new_field("spam-filter.trusted-reply.learn")
-            .label("Auto-learn ham from trusted replies")
+            .label("Learn ham from trusted replies")
             .help(concat!(
                 "Whether to automatically learn ham messages ",
                 "that are replies to messages sent by the recipient.",
@@ -463,8 +455,8 @@ impl Builder<Schemas, ()> {
             .title("Auto-learn")
             .display_if_eq("spam-filter.classifier.model", ["ftrl-fh", "ftrl-ccfh"])
             .fields([
-                "spam-filter.classifier.auto-learn.spam-score",
-                "spam-filter.classifier.auto-learn.ham-score",
+                "spam-filter.classifier.auto-learn.spam-rbl-count",
+                "spam-filter.classifier.auto-learn.spam-trap",
                 "spam-filter.card-is-ham.learn",
                 "spam-filter.trusted-reply.learn",
             ])

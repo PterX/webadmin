@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.1.35] - 2025-12-XX
+
+## Added
+
+### Changed
+- Auto-learn spam from spam traps and RBL hits settings.
+
+### Fixed
+
+
 ## [0.1.34] - 2025-12-16
 
 ## Added
