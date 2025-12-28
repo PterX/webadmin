@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. This project adheres to [Semantic Versioning](http://semver.org/).
 
+## [0.1.37] - 2025-12-28
+
+## Added
+- Meilisearch task polling settings.
+
+### Changed
+
+### Fixed
+
 ## [0.1.36] - 2025-12-26
 
 ## Added

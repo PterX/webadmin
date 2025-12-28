@@ -463,6 +463,30 @@ impl Builder<Schemas, ()> {
                 ],
             )
             .build()
+            // Meilisearch specific
+            .new_field("task.poll-interval")
+            .label("Interval")
+            .help("Interval between polling for task status")
+            .display_if_eq("type", ["meilisearch"])
+            .default("500ms")
+            .typ(Type::Duration)
+            .input_check([Transformer::Trim], [Validator::Required])
+            .build()
+            .new_field("task.poll-retries")
+            .label("Retries")
+            .help("Number of times to poll for task status before giving up")
+            .display_if_eq("type", ["meilisearch"])
+            .default("60")
+            .typ(Type::Input)
+            .input_check(
+                [Transformer::Trim],
+                [
+                    Validator::Required,
+                    Validator::MinValue(1.into()),
+                    Validator::MaxValue(1024.into()),
+                ],
+            )
+            .build()
             // Redis specific
             .new_field("urls")
             .label("URL(s)")
@@ -889,6 +913,11 @@ impl Builder<Schemas, ()> {
             .title("Index")
             .display_if_eq("type", ["elasticsearch"])
             .fields(["index.shards", "index.replicas"])
+            .build()
+            .new_form_section()
+            .title("Task Polling")
+            .display_if_eq("type", ["meilisearch"])
+            .fields(["task.poll-interval", "task.poll-retries"])
             .build()
             .list_title("Stores")
             .list_subtitle("Manage data, blob, full-text, and lookup stores")
